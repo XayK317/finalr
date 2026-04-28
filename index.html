@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MediVault | Secure Records</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  </head>
+  <body>
+    <div id="login-overlay">
+      <div class="login-card">
+        <div class="logo-area">🛡️ MediVault</div>
+        <p>Enter credentials to decrypt vault</p>
+        <input
+          type="text"
+          id="username"
+          placeholder="Username (Harry.medivault)"
+        />
+        <input type="password" id="password" placeholder="Password (med4me)" />
+        <button id="login-btn">Access Records</button>
+        <p id="login-error">Invalid credentials. Access denied.</p>
+      </div>
+    </div>
+
+    <div id="main-app">
+      <header>
+        <div class="user-info">
+          <h1>MediVault Portal</h1>
+          <p>
+            Welcome, <strong>Harry</strong> |
+            <span id="api-status">Connecting to AI...</span>
+          </p>
+        </div>
+        <button class="logout-btn" onclick="location.reload()">
+          Secure Logout
+        </button>
+      </header>
+
+      <main class="grid-container">
+        <section id="upload-panel">
+          <h3>New Entry</h3>
+          <form id="record-form">
+            <input
+              type="text"
+              id="rec-title"
+              placeholder="Record Title"
+              required
+            />
+            <input
+              type="text"
+              id="rec-doctor"
+              placeholder="Facility/Doctor"
+              required
+            />
+            <input type="date" id="rec-date" required />
+            <textarea
+              id="rec-notes"
+              placeholder="Annotated notes..."
+            ></textarea>
+
+            <div id="drop-zone">
+              <p>Drag & Drop medical image</p>
+              <input type="file" id="file-input" accept="image/*" hidden />
+              <img
+                id="preview-img"
+                style="display: none; max-width: 100%; border-radius: 8px"
+              />
+            </div>
+
+            <button type="submit">Encrypt & File Record</button>
+          </form>
+        </section>
+
+        <section id="vault-dashboard">
+          <div class="dashboard-header">
+            <h2>Consolidated Records</h2>
+            <input
+              type="text"
+              id="vault-search"
+              placeholder="Search facilities or records..."
+            />
+          </div>
+          <div id="category-container"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="index.js"></script>
+  </body>
+</html>
