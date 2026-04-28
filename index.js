@@ -24,7 +24,6 @@ class VaultManager {
     this.loadFromDisk();
   }
 
-  // --- DATA PERSISTENCE ---
   saveToDisk() {
     localStorage.setItem("medivault_data", JSON.stringify(this.categories));
   }
@@ -45,7 +44,6 @@ class VaultManager {
       cat = new Category(data.doctor);
       this.categories.unshift(cat);
     } else {
-      // Bump the facility tab to the top of the dashboard
       const idx = this.categories.indexOf(cat);
       this.categories.splice(idx, 1);
       this.categories.unshift(cat);
@@ -59,24 +57,21 @@ class VaultManager {
     );
     cat.records.push(newRecord);
 
-    // SORT BY DATE: Bumps newest dates to the top of the tab
+    // SORT BY DATE: Bumps newest dates to the top
     cat.records.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     this.saveToDisk();
     this.render();
   }
 
-  // --- EDITING & REORDERING ---
   updateEntry(cIdx, rId, field, newValue) {
     if (rId === null) {
-      // Renaming the Doctor/Facility
       this.categories[cIdx].doctor = newValue;
     } else {
-      // Updating a specific record detail
       const rec = this.categories[cIdx].records.find((r) => r.id === rId);
       if (rec) {
         rec[field] = newValue;
-        // If the date itself was edited, re-sort the tab immediately
+        // If the date was edited, re-sort the tab
         if (field === "date") {
           this.categories[cIdx].records.sort(
             (a, b) => new Date(b.date) - new Date(a.date),
@@ -85,8 +80,7 @@ class VaultManager {
       }
     }
     this.saveToDisk();
-
-    // Re-render if the sort order or category name changed
+    // Re-render only if sorting might have changed positions
     if (field === "date" || rId === null) this.render();
   }
 
@@ -166,11 +160,10 @@ class VaultManager {
 const vault = new VaultManager();
 let currentImg = null;
 
-// Auth with Login Feedback
+// Auth
 document.getElementById("login-btn").addEventListener("click", () => {
   const u = document.getElementById("username").value;
   const p = document.getElementById("password").value;
-
   if (u === "Harry.medivault" && p === "med4me") {
     gsap.to("#login-overlay", {
       yPercent: -100,
