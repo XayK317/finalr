@@ -24,6 +24,7 @@ class VaultManager {
     this.loadFromDisk();
   }
 
+  // --- DATA PERSISTENCE ---
   saveToDisk() {
     localStorage.setItem("medivault_data", JSON.stringify(this.categories));
   }
@@ -35,6 +36,7 @@ class VaultManager {
     }
   }
 
+  // --- CORE ACTIONS ---
   addRecord(data) {
     let cat = this.categories.find(
       (c) => c.doctor.toLowerCase() === data.doctor.toLowerCase(),
@@ -54,14 +56,10 @@ class VaultManager {
     this.render();
   }
 
-  // --- NEW: DYNAMIC UPDATE ENGINE ---
-  // Handles facility renaming AND individual record editing
   updateEntry(cIdx, rId, field, newValue) {
     if (rId === null) {
-      // Renaming the Doctor/Facility
       this.categories[cIdx].doctor = newValue;
     } else {
-      // Updating a specific record detail
       const rec = this.categories[cIdx].records.find((r) => r.id === rId);
       if (rec) rec[field] = newValue;
     }
@@ -76,6 +74,18 @@ class VaultManager {
       this.categories.splice(cIdx, 1);
     this.saveToDisk();
     this.render();
+  }
+
+  moveTab(index, direction) {
+    const newIndex = index + direction;
+    if (newIndex >= 0 && newIndex < this.categories.length) {
+      [this.categories[index], this.categories[newIndex]] = [
+        this.categories[newIndex],
+        this.categories[index],
+      ];
+      this.saveToDisk();
+      this.render();
+    }
   }
 
   render() {
@@ -97,11 +107,13 @@ class VaultManager {
       tab.className = "doctor-tab";
       tab.style.borderLeftColor = cat.color;
 
-      // Facility Header (Editable)
       tab.innerHTML = `
                 <div class="tab-controls">
-                    <h3 contenteditable="true" 
-                        onblur="vault.updateEntry(${cIdx}, null, 'doctor', this.innerText)">${cat.doctor}</h3>
+                    <div class="move-btns">
+                        <button class="move-btn" onclick="vault.moveTab(${cIdx}, -1)">↑</button>
+                        <button class="move-btn" onclick="vault.moveTab(${cIdx}, 1)">↓</button>
+                    </div>
+                    <h3 contenteditable="true" onblur="vault.updateEntry(${cIdx}, null, 'doctor', this.innerText)">${cat.doctor}</h3>
                     <input type="color" value="${cat.color}" onchange="vault.categories[${cIdx}].color = this.value; vault.saveToDisk(); vault.render()">
                     <button class="btn-del" onclick="vault.categories.splice(${cIdx}, 1); vault.saveToDisk(); vault.render()">Delete Tab</button>
                 </div>
@@ -112,14 +124,12 @@ class VaultManager {
         item.className = "record-item";
         item.innerHTML = `
                     <div style="display:flex; justify-content:space-between;">
-                        <strong contenteditable="true" 
-                                onblur="vault.updateEntry(${cIdx}, ${rec.id}, 'title', this.innerText)">${rec.title}</strong>
+                        <strong contenteditable="true" onblur="vault.updateEntry(${cIdx}, ${rec.id}, 'title', this.innerText)">${rec.title}</strong>
                         <button class="btn-del" onclick="vault.deleteRecord(${cIdx}, ${rec.id})">Remove</button>
                     </div>
-                    <p contenteditable="true" 
-                       onblur="vault.updateEntry(${cIdx}, ${rec.id}, 'notes', this.innerText)">${rec.notes}</p>
+                    <p contenteditable="true" onblur="vault.updateEntry(${cIdx}, ${rec.id}, 'notes', this.innerText)">${rec.notes}</p>
                     <small>Date: ${rec.date}</small>
-                    ${rec.image ? `<img src="${rec.image}" style="max-width:200px; display:block; margin-top:10px; border-radius:4px;">` : ""}
+                    ${rec.image ? `<img src="${rec.image}" class="vault-img">` : ""}
                 `;
         tab.appendChild(item);
       });
@@ -128,15 +138,16 @@ class VaultManager {
   }
 }
 
-// ... (Keep the Login, Search, and File Handlers from previous code) ...
+// --- INITIALIZATION ---
 const vault = new VaultManager();
 let currentImg = null;
 
+// Auth with Incorrect Login feedback
 document.getElementById("login-btn").addEventListener("click", () => {
-  if (
-    document.getElementById("username").value === "Harry.medivault" &&
-    document.getElementById("password").value === "med4me"
-  ) {
+  const u = document.getElementById("username").value;
+  const p = document.getElementById("password").value;
+
+  if (u === "Harry.medivault" && p === "med4me") {
     gsap.to("#login-overlay", {
       yPercent: -100,
       duration: 0.8,
@@ -146,14 +157,20 @@ document.getElementById("login-btn").addEventListener("click", () => {
         vault.render();
       },
     });
+  } else {
+    // Show error message and add shake effect
+    document.getElementById("login-error").style.display = "block";
+    gsap.to(".login-card", { x: 10, repeat: 3, yoyo: true, duration: 0.08 });
   }
 });
 
+// Search
 document.getElementById("vault-search").addEventListener("input", (e) => {
   vault.searchTerm = e.target.value;
   vault.render();
 });
 
+// Form Submissions
 document.getElementById("record-form").addEventListener("submit", (e) => {
   e.preventDefault();
   vault.addRecord({
@@ -166,6 +183,53 @@ document.getElementById("record-form").addEventListener("submit", (e) => {
   e.target.reset();
   currentImg = null;
   document.getElementById("preview-img").style.display = "none";
+  document.getElementById("drop-zone").querySelector("p").style.display =
+    "block";
 });
 
-// File Handlers (Keep the handleFile logic from before)
+// --- MULTIMEDIA: DRAG & DROP LOGIC ---
+const dz = document.getElementById("drop-zone");
+const fileInput = document.getElementById("file-input");
+
+dz.addEventListener("click", () => fileInput.click());
+
+["dragenter", "dragover", "dragleave", "drop"].forEach((name) => {
+  dz.addEventListener(
+    name,
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    false,
+  );
+});
+
+["dragenter", "dragover"].forEach((name) => {
+  dz.addEventListener(name, () => dz.classList.add("active"), false);
+});
+["dragleave", "drop"].forEach((name) => {
+  dz.addEventListener(name, () => dz.classList.remove("active"), false);
+});
+
+dz.addEventListener("drop", (e) => {
+  const files = e.dataTransfer.files;
+  if (files.length > 0) handleFile(files[0]);
+});
+
+fileInput.addEventListener("change", (e) => {
+  if (e.target.files.length > 0) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  if (file && file.type.startsWith("image/")) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      currentImg = ev.target.result;
+      const pre = document.getElementById("preview-img");
+      pre.src = currentImg;
+      pre.style.display = "block";
+      dz.querySelector("p").style.display = "none";
+    };
+    reader.readAsDataURL(file);
+  }
+}
