@@ -45,25 +45,49 @@ class VaultManager {
       cat = new Category(data.doctor);
       this.categories.unshift(cat);
     } else {
+      // Bump the facility tab to the top of the dashboard
       const idx = this.categories.indexOf(cat);
       this.categories.splice(idx, 1);
       this.categories.unshift(cat);
     }
-    cat.records.unshift(
-      new MedicalRecord(data.title, data.date, data.notes, data.image),
+
+    const newRecord = new MedicalRecord(
+      data.title,
+      data.date,
+      data.notes,
+      data.image,
     );
+    cat.records.push(newRecord);
+
+    // SORT BY DATE: Bumps newest dates to the top of the tab
+    cat.records.sort((a, b) => new Date(b.date) - new Date(a.date));
+
     this.saveToDisk();
     this.render();
   }
 
+  // --- EDITING & REORDERING ---
   updateEntry(cIdx, rId, field, newValue) {
     if (rId === null) {
+      // Renaming the Doctor/Facility
       this.categories[cIdx].doctor = newValue;
     } else {
+      // Updating a specific record detail
       const rec = this.categories[cIdx].records.find((r) => r.id === rId);
-      if (rec) rec[field] = newValue;
+      if (rec) {
+        rec[field] = newValue;
+        // If the date itself was edited, re-sort the tab immediately
+        if (field === "date") {
+          this.categories[cIdx].records.sort(
+            (a, b) => new Date(b.date) - new Date(a.date),
+          );
+        }
+      }
     }
     this.saveToDisk();
+
+    // Re-render if the sort order or category name changed
+    if (field === "date" || rId === null) this.render();
   }
 
   deleteRecord(cIdx, rId) {
@@ -128,7 +152,7 @@ class VaultManager {
                         <button class="btn-del" onclick="vault.deleteRecord(${cIdx}, ${rec.id})">Remove</button>
                     </div>
                     <p contenteditable="true" onblur="vault.updateEntry(${cIdx}, ${rec.id}, 'notes', this.innerText)">${rec.notes}</p>
-                    <small>Date: ${rec.date}</small>
+                    <small>Date: <span contenteditable="true" onblur="vault.updateEntry(${cIdx}, ${rec.id}, 'date', this.innerText)">${rec.date}</span></small>
                     ${rec.image ? `<img src="${rec.image}" class="vault-img">` : ""}
                 `;
         tab.appendChild(item);
@@ -142,7 +166,7 @@ class VaultManager {
 const vault = new VaultManager();
 let currentImg = null;
 
-// Auth with Incorrect Login feedback
+// Auth with Login Feedback
 document.getElementById("login-btn").addEventListener("click", () => {
   const u = document.getElementById("username").value;
   const p = document.getElementById("password").value;
@@ -158,7 +182,6 @@ document.getElementById("login-btn").addEventListener("click", () => {
       },
     });
   } else {
-    // Show error message and add shake effect
     document.getElementById("login-error").style.display = "block";
     gsap.to(".login-card", { x: 10, repeat: 3, yoyo: true, duration: 0.08 });
   }
