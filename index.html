@@ -23,17 +23,19 @@
       </div>
     </div>
 
-    <div id="main-app">
+    <div id="main-app" style="display: none; padding: 2rem">
       <header>
         <div class="user-info">
           <h1>MediVault Portal</h1>
-          <p>Welcome, <strong>Harry</strong></p>
+          <p>
+            Welcome, <strong>Harry</strong> | 
+            <span id="api-status" style="font-style: italic; opacity: 0.8;">Establishing secure connection...</span>
+          </p>
         </div>
         <button class="logout-btn" onclick="location.reload()">
           Secure Logout
         </button>
       </header>
-
       <main class="grid-container">
         <section id="upload-panel">
           <h3>New Entry</h3>
@@ -55,7 +57,6 @@
               id="rec-notes"
               placeholder="Annotated notes..."
             ></textarea>
-
             <div id="drop-zone">
               <p>Drag & Drop medical image</p>
               <input type="file" id="file-input" accept="image/*" hidden />
@@ -64,11 +65,9 @@
                 style="display: none; max-width: 100%; border-radius: 8px"
               />
             </div>
-
             <button type="submit">Encrypt & File Record</button>
           </form>
         </section>
-
         <section id="vault-dashboard">
           <div class="dashboard-header">
             <h2>Consolidated Records</h2>
@@ -82,7 +81,6 @@
         </section>
       </main>
     </div>
-
     <script src="index.js"></script>
   </body>
 </html>

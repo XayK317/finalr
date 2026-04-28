@@ -1,107 +1,77 @@
-// --- 1. OOP CLASSES ---
 class MedicalRecord {
-  constructor(title, date, notes, image, id = Date.now()) {
-    this.id = id;
-    this.title = title;
-    this.date = date;
-    this.notes = notes;
-    this.image = image;
-  }
-}
-
-class Category {
-  constructor(doctor, color = "#3498db") {
-    this.doctor = doctor;
-    this.color = color;
-    this.records = [];
+  constructor(t, d, n, i) {
+    Object.assign(this, {
+      id: Date.now(),
+      title: t,
+      date: d,
+      notes: n,
+      image: i,
+    });
   }
 }
 
 class VaultManager {
   constructor() {
-    this.categories = [];
+    this.categories = JSON.parse(localStorage.getItem("medivault_data")) || [];
     this.searchTerm = "";
-    this.loadFromDisk();
   }
 
-  saveToDisk() {
+  save() {
     localStorage.setItem("medivault_data", JSON.stringify(this.categories));
   }
 
-  loadFromDisk() {
-    const saved = localStorage.getItem("medivault_data");
-    if (saved) {
-      this.categories = JSON.parse(saved);
-    }
-  }
-
-  // --- CORE ACTIONS ---
   addRecord(data) {
     let cat = this.categories.find(
       (c) => c.doctor.toLowerCase() === data.doctor.toLowerCase(),
     );
     if (!cat) {
-      cat = new Category(data.doctor);
+      cat = { doctor: data.doctor, color: "#3498db", records: [] };
       this.categories.unshift(cat);
     } else {
-      const idx = this.categories.indexOf(cat);
-      this.categories.splice(idx, 1);
+      this.categories.splice(this.categories.indexOf(cat), 1);
       this.categories.unshift(cat);
     }
-
-    const newRecord = new MedicalRecord(
-      data.title,
-      data.date,
-      data.notes,
-      data.image,
+    cat.records.push(
+      new MedicalRecord(data.title, data.date, data.notes, data.image),
     );
-    cat.records.push(newRecord);
-
-    // SORT BY DATE: Bumps newest dates to the top
     cat.records.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    this.saveToDisk();
+    this.save();
     this.render();
   }
 
-  updateEntry(cIdx, rId, field, newValue) {
-    if (rId === null) {
-      this.categories[cIdx].doctor = newValue;
-    } else {
+  update(cIdx, rId, field, val) {
+    if (rId === null) this.categories[cIdx].doctor = val;
+    else {
       const rec = this.categories[cIdx].records.find((r) => r.id === rId);
       if (rec) {
-        rec[field] = newValue;
-        // If the date was edited, re-sort the tab
-        if (field === "date") {
+        rec[field] = val;
+        if (field === "date")
           this.categories[cIdx].records.sort(
             (a, b) => new Date(b.date) - new Date(a.date),
           );
-        }
       }
     }
-    this.saveToDisk();
-    // Re-render only if sorting might have changed positions
+    this.save();
     if (field === "date" || rId === null) this.render();
   }
 
-  deleteRecord(cIdx, rId) {
+  delete(cIdx, rId) {
     this.categories[cIdx].records = this.categories[cIdx].records.filter(
       (r) => r.id !== rId,
     );
-    if (this.categories[cIdx].records.length === 0)
-      this.categories.splice(cIdx, 1);
-    this.saveToDisk();
+    if (!this.categories[cIdx].records.length) this.categories.splice(cIdx, 1);
+    this.save();
     this.render();
   }
 
-  moveTab(index, direction) {
-    const newIndex = index + direction;
-    if (newIndex >= 0 && newIndex < this.categories.length) {
-      [this.categories[index], this.categories[newIndex]] = [
-        this.categories[newIndex],
-        this.categories[index],
+  move(idx, dir) {
+    let target = idx + dir;
+    if (target >= 0 && target < this.categories.length) {
+      [this.categories[idx], this.categories[target]] = [
+        this.categories[target],
+        this.categories[idx],
       ];
-      this.saveToDisk();
+      this.save();
       this.render();
     }
   }
@@ -109,46 +79,34 @@ class VaultManager {
   render() {
     const container = document.getElementById("category-container");
     container.innerHTML = "";
-    const search = this.searchTerm.toLowerCase();
+    const s = this.searchTerm.toLowerCase();
 
     this.categories.forEach((cat, cIdx) => {
-      const filteredRecords = cat.records.filter(
+      const filtered = cat.records.filter(
         (r) =>
-          r.title.toLowerCase().includes(search) ||
-          r.notes.toLowerCase().includes(search) ||
-          cat.doctor.toLowerCase().includes(search),
+          r.title.toLowerCase().includes(s) ||
+          r.notes.toLowerCase().includes(s) ||
+          cat.doctor.toLowerCase().includes(s),
       );
-
-      if (search && filteredRecords.length === 0) return;
+      if (s && !filtered.length) return;
 
       const tab = document.createElement("div");
       tab.className = "doctor-tab";
       tab.style.borderLeftColor = cat.color;
+      tab.innerHTML = `<div class="tab-controls">
+                <div class="move-btns"><button onclick="vault.move(${cIdx},-1)">↑</button><button onclick="vault.move(${cIdx},1)">↓</button></div>
+                <h3 contenteditable="true" onblur="vault.update(${cIdx},null,'doctor',this.innerText)">${cat.doctor}</h3>
+                <input type="color" value="${cat.color}" onchange="vault.categories[${cIdx}].color=this.value;vault.save();vault.render()">
+                <button class="btn-del" onclick="vault.categories.splice(${cIdx},1);vault.save();vault.render()">Delete Tab</button>
+            </div>`;
 
-      tab.innerHTML = `
-                <div class="tab-controls">
-                    <div class="move-btns">
-                        <button class="move-btn" onclick="vault.moveTab(${cIdx}, -1)">↑</button>
-                        <button class="move-btn" onclick="vault.moveTab(${cIdx}, 1)">↓</button>
-                    </div>
-                    <h3 contenteditable="true" onblur="vault.updateEntry(${cIdx}, null, 'doctor', this.innerText)">${cat.doctor}</h3>
-                    <input type="color" value="${cat.color}" onchange="vault.categories[${cIdx}].color = this.value; vault.saveToDisk(); vault.render()">
-                    <button class="btn-del" onclick="vault.categories.splice(${cIdx}, 1); vault.saveToDisk(); vault.render()">Delete Tab</button>
-                </div>
-            `;
-
-      filteredRecords.forEach((rec) => {
+      filtered.forEach((rec) => {
         const item = document.createElement("div");
         item.className = "record-item";
-        item.innerHTML = `
-                    <div style="display:flex; justify-content:space-between;">
-                        <strong contenteditable="true" onblur="vault.updateEntry(${cIdx}, ${rec.id}, 'title', this.innerText)">${rec.title}</strong>
-                        <button class="btn-del" onclick="vault.deleteRecord(${cIdx}, ${rec.id})">Remove</button>
-                    </div>
-                    <p contenteditable="true" onblur="vault.updateEntry(${cIdx}, ${rec.id}, 'notes', this.innerText)">${rec.notes}</p>
-                    <small>Date: <span contenteditable="true" onblur="vault.updateEntry(${cIdx}, ${rec.id}, 'date', this.innerText)">${rec.date}</span></small>
-                    ${rec.image ? `<img src="${rec.image}" class="vault-img">` : ""}
-                `;
+        item.innerHTML = `<div style="display:flex;justify-content:space-between;"><strong contenteditable="true" onblur="vault.update(${cIdx},${rec.id},'title',this.innerText)">${rec.title}</strong><button class="btn-del" onclick="vault.delete(${cIdx},${rec.id})">Remove</button></div>
+                    <p contenteditable="true" onblur="vault.update(${cIdx},${rec.id},'notes',this.innerText)">${rec.notes}</p>
+                    <small>Date: <span contenteditable="true" onblur="vault.update(${cIdx},${rec.id},'date',this.innerText)">${rec.date}</span></small>
+                    ${rec.image ? `<img src="${rec.image}" class="vault-img">` : ""}`;
         tab.appendChild(item);
       });
       container.appendChild(tab);
@@ -156,19 +114,17 @@ class VaultManager {
   }
 }
 
-// --- INITIALIZATION ---
 const vault = new VaultManager();
 let currentImg = null;
 
-// Auth
-document.getElementById("login-btn").addEventListener("click", () => {
-  const u = document.getElementById("username").value;
-  const p = document.getElementById("password").value;
+// Auth & Search
+document.getElementById("login-btn").onclick = () => {
+  const u = document.getElementById("username").value,
+    p = document.getElementById("password").value;
   if (u === "Harry.medivault" && p === "med4me") {
     gsap.to("#login-overlay", {
       yPercent: -100,
       duration: 0.8,
-      ease: "expo.inOut",
       onComplete: () => {
         document.getElementById("main-app").style.display = "block";
         vault.render();
@@ -178,16 +134,14 @@ document.getElementById("login-btn").addEventListener("click", () => {
     document.getElementById("login-error").style.display = "block";
     gsap.to(".login-card", { x: 10, repeat: 3, yoyo: true, duration: 0.08 });
   }
-});
+};
 
-// Search
-document.getElementById("vault-search").addEventListener("input", (e) => {
+document.getElementById("vault-search").oninput = (e) => {
   vault.searchTerm = e.target.value;
   vault.render();
-});
+};
 
-// Form Submissions
-document.getElementById("record-form").addEventListener("submit", (e) => {
+document.getElementById("record-form").onsubmit = (e) => {
   e.preventDefault();
   vault.addRecord({
     title: document.getElementById("rec-title").value,
@@ -199,53 +153,42 @@ document.getElementById("record-form").addEventListener("submit", (e) => {
   e.target.reset();
   currentImg = null;
   document.getElementById("preview-img").style.display = "none";
-  document.getElementById("drop-zone").querySelector("p").style.display =
-    "block";
-});
+};
 
-// --- MULTIMEDIA: DRAG & DROP LOGIC ---
-const dz = document.getElementById("drop-zone");
-const fileInput = document.getElementById("file-input");
-
-dz.addEventListener("click", () => fileInput.click());
-
-["dragenter", "dragover", "dragleave", "drop"].forEach((name) => {
-  dz.addEventListener(
-    name,
-    (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    },
-    false,
-  );
-});
-
-["dragenter", "dragover"].forEach((name) => {
-  dz.addEventListener(name, () => dz.classList.add("active"), false);
-});
-["dragleave", "drop"].forEach((name) => {
-  dz.addEventListener(name, () => dz.classList.remove("active"), false);
-});
-
-dz.addEventListener("drop", (e) => {
-  const files = e.dataTransfer.files;
-  if (files.length > 0) handleFile(files[0]);
-});
-
-fileInput.addEventListener("change", (e) => {
-  if (e.target.files.length > 0) handleFile(e.target.files[0]);
-});
+// Drag & Drop
+const dz = document.getElementById("drop-zone"),
+  fi = document.getElementById("file-input");
+dz.onclick = () => fi.click();
+["dragenter", "dragover", "dragleave", "drop"].forEach((n) =>
+  dz.addEventListener(n, (e) => {
+    e.preventDefault();
+    n.includes("over")
+      ? dz.classList.add("active")
+      : dz.classList.remove("active");
+  }),
+);
+dz.ondrop = (e) => handleFile(e.dataTransfer.files[0]);
+fi.onchange = (e) => handleFile(e.target.files[0]);
 
 function handleFile(file) {
-  if (file && file.type.startsWith("image/")) {
+  if (file?.type.startsWith("image/")) {
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      currentImg = ev.target.result;
-      const pre = document.getElementById("preview-img");
-      pre.src = currentImg;
-      pre.style.display = "block";
-      dz.querySelector("p").style.display = "none";
+    reader.onload = (e) => {
+      currentImg = e.target.result;
+      Object.assign(document.getElementById("preview-img"), {
+        src: currentImg,
+        style: "display:block;max-width:100%",
+      });
     };
     reader.readAsDataURL(file);
   }
+}
+// --- API INTEGRATION ---
+function initAI() {
+  fetch("https://api.quotable.io/random?tags=wisdom")
+    .then((r) => r.json())
+    .then((d) => {
+      console.log("MediVault Security Wisdom: " + d.content);
+    })
+    .catch((err) => console.log("System operating in local mode."));
 }
