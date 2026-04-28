@@ -185,10 +185,17 @@ function handleFile(file) {
 }
 // --- API INTEGRATION ---
 function initAI() {
-  fetch("https://api.quotable.io/random?tags=wisdom")
-    .then((r) => r.json())
-    .then((d) => {
-      console.log("MediVault Security Wisdom: " + d.content);
+  // Using Advice Slip API - Reliable, free, and no CORS issues
+  fetch("https://api.adviceslip.com/advice")
+    .then((response) => response.json())
+    .then((data) => {
+      const advice = data.slip.advice;
+      document.getElementById("api-status").innerText = `"${advice}"`;
+      console.log("MediVault System Advice: " + advice);
     })
-    .catch((err) => console.log("System operating in local mode."));
+    .catch((err) => {
+      document.getElementById("api-status").innerText =
+        "Security Mode: Encrypted";
+      console.log("API offline. Operating in local secure mode.");
+    });
 }
